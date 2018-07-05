@@ -466,6 +466,7 @@ export default class DataSheet extends PureComponent {
                       key={cell.key ? cell.key : `${i}-${j}`}
                       row={i}
                       col={j}
+                      isCorner={i === data.length - 1 && j === row.length - 1}
                       cell={cell}
                       forceEdit={forceEdit}
                       onMouseDown={this.onMouseDown}

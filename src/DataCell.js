@@ -163,7 +163,7 @@ export default class DataCell extends PureComponent {
   render () {
     const {row, col, cell, cellRenderer: CellRenderer,
       valueRenderer, dataEditor, valueViewer, attributesRenderer,
-      selected, editing, onKeyUp} = this.props
+      selected, editing, onKeyUp, isCorner} = this.props
     const {updated} = this.state
 
     const content = this.renderComponent(editing, cell) ||
@@ -184,6 +184,7 @@ export default class DataCell extends PureComponent {
         row={row}
         col={col}
         cell={cell}
+        isCorner={isCorner}
         selected={selected}
         editing={editing}
         updated={updated}

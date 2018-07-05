@@ -41,6 +41,7 @@ export default class DataSheet extends PureComponent {
     this.onChange = this.onChange.bind(this)
     this.onRevert = this.onRevert.bind(this)
     this.isSelected = this.isSelected.bind(this)
+    this.isSelectionCorner = this.isSelectionCorner.bind(this);
     this.isEditing = this.isEditing.bind(this)
     this.isClearing = this.isClearing.bind(this)
     this.handleComponentKey = this.handleComponentKey.bind(this)
@@ -439,6 +440,13 @@ export default class DataSheet extends PureComponent {
         (negX && negY) ||
         (posX && negY)
   }
+  
+  isSelectionCorner (i, j) {
+    const {start, end} = this.getState()
+    const x = Math.max(start.j, end.j);
+    const y = Math.max(start.i, end.i);
+    return x === j && y === i;
+  }
 
   isEditing (i, j) {
     return this.state.editing.i === i && this.state.editing.j === j
@@ -466,6 +474,7 @@ export default class DataSheet extends PureComponent {
                       key={cell.key ? cell.key : `${i}-${j}`}
                       row={i}
                       col={j}
+                      isCorner={this.isSelectionCorner(i, j)}
                       cell={cell}
                       forceEdit={forceEdit}
                       onMouseDown={this.onMouseDown}

@@ -151,7 +151,7 @@ export default class DataSheet extends PureComponent {
     for (let i = targetStart.i; i <= targetEnd.i; i++) {
       for (let j = targetStart.j; j <= targetEnd.j; j++) {
         const cell = data[i] && data[i][j]
-        if (cell.readOnly) {
+        if (!cell || cell.readOnly) {
           continue;
         }
         if (j < leftX) {

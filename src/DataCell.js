@@ -30,6 +30,7 @@ export default class DataCell extends PureComponent {
     this.handleRevert = this.handleRevert.bind(this)
 
     this.handleKey = this.handleKey.bind(this)
+    this.handleClickDrag = this.handleClickDrag.bind(this)
     this.handleMouseDown = this.handleMouseDown.bind(this)
     this.handleMouseOver = this.handleMouseOver.bind(this)
     this.handleContextMenu = this.handleContextMenu.bind(this)
@@ -84,6 +85,14 @@ export default class DataCell extends PureComponent {
   handleRevert () {
     this.setState({reverting: true})
     this.props.onRevert()
+  }
+
+  handleClickDrag (e) {
+    e.stopPropagation();
+    const {row, col, onClickDrag, cell} = this.props
+    if (!cell.disableEvents) {
+      onClickDrag(row, col)
+    }
   }
 
   handleMouseDown (e) {
@@ -163,7 +172,7 @@ export default class DataCell extends PureComponent {
   render () {
     const {row, col, cell, cellRenderer: CellRenderer,
       valueRenderer, dataEditor, valueViewer, attributesRenderer,
-      selected, editing, onKeyUp, isCorner} = this.props
+      selected, editing, onKeyUp, canClickDrag, isCopyTarget} = this.props
     const {updated} = this.state
 
     const content = this.renderComponent(editing, cell) ||
@@ -174,6 +183,7 @@ export default class DataCell extends PureComponent {
       cell.className,
       'cell', cell.overflow,
       selected && 'selected',
+      isCopyTarget && 'copy-target',
       editing && 'editing',
       cell.readOnly && 'read-only',
       updated && 'updated'
@@ -184,13 +194,15 @@ export default class DataCell extends PureComponent {
         row={row}
         col={col}
         cell={cell}
-        isCorner={isCorner}
+        canClickDrag={canClickDrag}
         selected={selected}
+        isCopyTarget={isCopyTarget}
         editing={editing}
         updated={updated}
         attributesRenderer={attributesRenderer}
         className={className}
         style={widthStyle(cell)}
+        onClickDrag={this.handleClickDrag}
         onMouseDown={this.handleMouseDown}
         onMouseOver={this.handleMouseOver}
         onDoubleClick={this.handleDoubleClick}

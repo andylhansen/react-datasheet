@@ -7,7 +7,7 @@ export default class Cell extends PureComponent {
   render () {
     const {
           cell, row, col, attributesRenderer,
-          className, style, onMouseDown, onMouseOver, onDoubleClick, onContextMenu
+          className, style, onMouseDown, onMouseOver, onDoubleClick, onContextMenu, canClickDrag, onClickDrag
         } = this.props
 
     const {colSpan, rowSpan} = cell
@@ -26,6 +26,7 @@ export default class Cell extends PureComponent {
         {...attributes}
       >
         {this.props.children}
+        {canClickDrag && <div className="drag-handle" onMouseDown={onClickDrag}></div>}
       </td>
     )
   }

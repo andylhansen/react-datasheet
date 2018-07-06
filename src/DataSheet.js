@@ -28,6 +28,7 @@ const defaultParsePaste = (str) => {
 export default class DataSheet extends PureComponent {
   constructor (props) {
     super(props)
+    this.onClickDrag = this.onClickDrag.bind(this)
     this.onMouseDown = this.onMouseDown.bind(this)
     this.onMouseUp = this.onMouseUp.bind(this)
     this.onMouseOver = this.onMouseOver.bind(this)
@@ -41,10 +42,12 @@ export default class DataSheet extends PureComponent {
     this.onChange = this.onChange.bind(this)
     this.onRevert = this.onRevert.bind(this)
     this.isSelected = this.isSelected.bind(this)
+    this.isCopyTarget = this.isCopyTarget.bind(this)
     this.isSelectionCorner = this.isSelectionCorner.bind(this);
     this.isEditing = this.isEditing.bind(this)
     this.isClearing = this.isClearing.bind(this)
     this.handleComponentKey = this.handleComponentKey.bind(this)
+    this.getDragTargetRange = this.getDragTargetRange.bind(this)
 
     this.handleKeyboardCellMovement = this.handleKeyboardCellMovement.bind(this)
 
@@ -54,7 +57,10 @@ export default class DataSheet extends PureComponent {
       selecting: false,
       forceEdit: false,
       editing: {},
-      clear: {}
+      clear: {},
+      dragging: false,
+      dragInitialSelection:  null,
+      dragEnd: null,
     }
     this.state = this.defaultState
 
@@ -118,6 +124,69 @@ export default class DataSheet extends PureComponent {
       this.setState(this.defaultState)
       this.removeAllListeners()
     }
+  }
+  
+  handleCopyDrag() {
+    const range = this.getDragTargetRange();
+    if (!range) {
+      return
+    }
+    
+    const {start: targetStart,end: targetEnd} = range;
+    const {start, end} = this.getState();
+    
+    const leftX = Math.min(start.j, end.j)
+    const rightX = Math.max(start.j, end.j)
+    
+    const topY = Math.min(start.i, end.i)
+    const bottomY = Math.max(start.i, end.i)
+    
+    const { data, onCellsChanged } = this.props;
+    
+    const changes = [];
+    
+    const cols = rightX - leftX + 1;
+    const rows = bottomY - topY + 1;
+    
+    for (let i = targetStart.i; i <= targetEnd.i; i++) {
+      for (let j = targetStart.j; j <= targetEnd.j; j++) {
+        const cell = data[i] && data[i][j]
+        if (cell.readOnly) {
+          continue;
+        }
+        if (j < leftX) {
+          changes.push({
+            cell,
+            row: i,
+            col: j,
+            value: data[i][rightX - ((targetEnd.j - j) % cols)].value
+          })
+        } else if (j > rightX) {
+          changes.push({
+            cell,
+            row: i,
+            col: j,
+            value: data[i][leftX + ((j - targetStart.j) % cols)].value
+          })
+        } else if (i < topY) {
+          changes.push({
+            cell,
+            row: i,
+            col: j,
+            value: data[bottomY - ((targetEnd.i - i) % rows)][j].value
+          })
+        } else if (i > bottomY) {
+          changes.push({
+            cell,
+            row: i,
+            col: j,
+            value: data[topY + ((i - targetStart.i) % rows)][j].value
+          })
+        }
+      }
+    }
+
+    onCellsChanged(changes)
   }
 
   handleCopy (e) {
@@ -378,6 +447,28 @@ export default class DataSheet extends PureComponent {
       this._setState({editing: {i: i, j: j}, forceEdit: true, clear: {}})
     }
   }
+  
+  onClickDrag (i, j) {
+    let cell = this.props.data[i][j];
+    if (!cell.readOnly) {
+      this._setState({
+        dragging: true,
+        dragEnd: {
+          i,
+          j,
+        },
+        dragInitialSelection: {
+          start: {
+            ...this.state.start
+          },
+          end: {
+            ...this.state.end
+          }
+        }
+      })
+      document.addEventListener('mouseup', this.onMouseUp)
+    }
+  }
 
   onMouseDown (i, j) {
     let editing = (isEmpty(this.state.editing) || this.state.editing.i !== i || this.state.editing.j !== j)
@@ -397,11 +488,18 @@ export default class DataSheet extends PureComponent {
   onMouseOver (i, j) {
     if (this.state.selecting && isEmpty(this.state.editing)) {
       this._setState({end: {i, j}})
+    } else if (this.state.dragging) {
+      this._setState({
+        dragEnd: { i, j },
+      })
     }
   }
 
   onMouseUp () {
-    this._setState({selecting: false})
+    if (this.state.dragging) {
+      this.handleCopyDrag()
+    }
+    this._setState({selecting: false, dragging: false})
     document.removeEventListener('mouseup', this.onMouseUp)
   }
 
@@ -447,6 +545,89 @@ export default class DataSheet extends PureComponent {
     const y = Math.max(start.i, end.i);
     return x === j && y === i;
   }
+  
+  getDragTargetRange() {
+    const {start, end, dragEnd: { i, j }} = this.getState();
+    
+    const leftX = Math.min(start.j, end.j)
+    const rightX = Math.max(start.j, end.j)
+    
+    const topY = Math.min(start.i, end.i)
+    const bottomY = Math.max(start.i, end.i)
+    
+    if (j > rightX) {
+      return {
+        start: {
+          i: topY,
+          j: rightX + 1,
+        },
+        end: {
+          i: bottomY,
+          j,
+        }
+      }
+    } else if (j < leftX) {
+      return {
+        start: {
+          i: topY,
+          j,
+        },
+        end: {
+          i: bottomY,
+          j: leftX - 1,
+        }
+      }
+    } else if (i < topY) {
+      return {
+        start: {
+          i,
+          j: leftX,
+        },
+        end: {
+          i: topY - 1,
+          j: rightX,
+        }
+      }
+    } else {
+      return {
+        start: {
+          i: bottomY + 1,
+          j: leftX,
+        },
+        end: {
+          i,
+          j: rightX
+        }
+      }
+    }
+  }
+  
+  isCopyTarget (i, j) {
+    if (!this.state.dragging) {
+      return false
+    }
+    if (this.isSelected(i, j)) {
+      return false
+    }
+    
+    const range = this.getDragTargetRange()
+    
+    if (!range) {
+      return false
+    }
+    
+    const {start, end} = range
+    
+    const posX = (j >= start.j && j <= end.j)
+    const negX = (j <= start.j && j >= end.j)
+    const posY = (i >= start.i && i <= end.i)
+    const negY = (i <= start.i && i >= end.i)
+
+    return (posX && posY) ||
+        (negX && posY) ||
+        (negX && negY) ||
+        (posX && negY)
+  }
 
   isEditing (i, j) {
     return this.state.editing.i === i && this.state.editing.j === j
@@ -459,7 +640,7 @@ export default class DataSheet extends PureComponent {
   render () {
     const {sheetRenderer: SheetRenderer, rowRenderer: RowRenderer, cellRenderer,
       dataRenderer, valueRenderer, dataEditor, valueViewer, attributesRenderer,
-      className, overflow, data, keyFn} = this.props
+      className, overflow, data, keyFn, draggable} = this.props
     const {forceEdit} = this.state
 
     return (
@@ -474,9 +655,10 @@ export default class DataSheet extends PureComponent {
                       key={cell.key ? cell.key : `${i}-${j}`}
                       row={i}
                       col={j}
-                      isCorner={this.isSelectionCorner(i, j)}
+                      canClickDrag={draggable && this.isSelectionCorner(i, j)}
                       cell={cell}
                       forceEdit={forceEdit}
+                      onClickDrag={this.onClickDrag}
                       onMouseDown={this.onMouseDown}
                       onMouseOver={this.onMouseOver}
                       onDoubleClick={this.onDoubleClick}
@@ -486,6 +668,7 @@ export default class DataSheet extends PureComponent {
                       onNavigate={this.handleKeyboardCellMovement}
                       onKey={this.handleKey}
                       selected={this.isSelected(i, j)}
+                      isCopyTarget={this.isCopyTarget(i, j)}
                       editing={this.isEditing(i, j)}
                       clearing={this.isClearing(i, j)}
                       attributesRenderer={attributesRenderer}
